@@ -10,7 +10,7 @@ import { CategoryResult, JudgingPhase } from "@/components/phases/JudgingPhase";
 import { UseItPhase } from "@/components/phases/UseItPhase";
 import { UseItResult, UseItVote } from "@/components/phases/UseItVote";
 import { GameOver } from "@/components/phases/GameOver";
-import { loadProfile, useRoom } from "@/lib/client/useRoom";
+import { getToken, loadProfile, useRoom } from "@/lib/client/useRoom";
 import { PHASE_LABEL, cn } from "@/lib/ui";
 
 /**
@@ -54,7 +54,7 @@ export function RoomClient({ code }: { code: string }) {
         keepalive: true,
         headers: {
           "content-type": "application/json",
-          "x-yph-token": window.localStorage.getItem("youphemism:token") ?? "",
+          "x-yph-token": getToken(),
         },
         body: JSON.stringify({ type: "leave" }),
       }).catch(() => {});
@@ -214,7 +214,10 @@ function RoomCodeBadge({ code }: { code: string }) {
     <button
       onClick={async () => {
         try {
-          await navigator.clipboard.writeText(window.location.href);
+          // Share the clean room URL, never the dev-only ?seat= switch.
+          const url = new URL(window.location.href);
+          url.search = "";
+          await navigator.clipboard.writeText(url.toString());
           setCopied(true);
           setTimeout(() => setCopied(false), 1800);
         } catch {

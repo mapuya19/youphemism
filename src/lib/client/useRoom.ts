@@ -19,6 +19,21 @@ const TOKEN_KEY = "youphemism:token";
 const PROFILE_KEY = "youphemism:profile";
 const HEARTBEAT_MS = 8_000;
 
+/**
+ * Local development only: `?seat=2` namespaces this tab's identity so you can
+ * play several players from one browser. Without it, every tab in a browser
+ * profile shares localStorage and would therefore share a player.
+ */
+function seatSuffix(): string {
+  if (process.env.NODE_ENV === "production") return "";
+  if (typeof window === "undefined") return "";
+  const seat = new URLSearchParams(window.location.search).get("seat");
+  return seat && /^[a-z0-9_-]{1,8}$/i.test(seat) ? `:${seat}` : "";
+}
+
+const tokenKey = () => `${TOKEN_KEY}${seatSuffix()}`;
+const profileKey = () => `${PROFILE_KEY}${seatSuffix()}`;
+
 export interface Profile {
   name: string;
   avatar: number;
@@ -26,10 +41,11 @@ export interface Profile {
 
 export function getToken(): string {
   if (typeof window === "undefined") return "";
-  let token = window.localStorage.getItem(TOKEN_KEY);
+  const key = tokenKey();
+  let token = window.localStorage.getItem(key);
   if (!token) {
     token = createToken();
-    window.localStorage.setItem(TOKEN_KEY, token);
+    window.localStorage.setItem(key, token);
   }
   return token;
 }
@@ -37,7 +53,7 @@ export function getToken(): string {
 export function loadProfile(): Profile | null {
   if (typeof window === "undefined") return null;
   try {
-    const raw = window.localStorage.getItem(PROFILE_KEY);
+    const raw = window.localStorage.getItem(profileKey());
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Profile;
     if (typeof parsed.name !== "string") return null;
@@ -48,7 +64,7 @@ export function loadProfile(): Profile | null {
 }
 
 export function saveProfile(profile: Profile) {
-  window.localStorage.setItem(PROFILE_KEY, JSON.stringify(profile));
+  window.localStorage.setItem(profileKey(), JSON.stringify(profile));
 }
 
 export async function myPlayerId(): Promise<string> {

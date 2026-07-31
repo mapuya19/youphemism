@@ -108,15 +108,43 @@ npm run dev            # http://localhost:3000
 ```
 
 With no Redis credentials the app uses a process-local store — fine for
-single-instance local play. Open several browser tabs (each gets its own player
-token) or point phones at your LAN address.
+single-instance local play.
+
+### Playing a solo test game
+
+Your identity lives in `localStorage`, so every tab in a browser profile is
+normally the *same* player. In development only, add `?seat=` to take a different
+seat per tab:
+
+```
+http://localhost:3000/?seat=1              # host — create the room here
+http://localhost:3000/room/ABCDE?seat=2
+http://localhost:3000/room/ABCDE?seat=3
+```
+
+Three seats is the minimum for a real game. The switch is compiled out of
+production builds, and the room's "copy link" button always copies the clean URL
+without it. Separate browsers/profiles or real phones on your LAN address work
+too.
+
+Tip: drag the lobby timers to their minimums so a solo run-through takes a couple
+of minutes rather than fifteen.
+
+### Checks
 
 ```bash
-npm test               # rules engine + projection unit tests
+npm test               # rules + projection unit tests (no server needed)
 npm run typecheck
 npm run lint
-npm run smoke          # drives 4 bots through a full game against a live server
+npm run build
+
+npm run dev            # then, in another terminal:
+npm run smoke          # drives 4 bots through a full game over the real API
 ```
+
+`npm run smoke` is the fastest pre-deploy confidence check — it plays a complete
+four-player game and asserts judge rotation, judge-only picking, even dealing,
+coiner callbacks, one-point awards, the secrecy rules and the auth rejections.
 
 ## Deploy to Vercel
 

@@ -32,6 +32,13 @@ export function JoinPanel() {
 
   const persist = () => saveProfile({ name: name.trim(), avatar });
 
+  /** Carry the dev-only `?seat=` switch through to the room URL. */
+  const roomHref = (roomCode: string) => {
+    if (typeof window === "undefined") return `/room/${roomCode}`;
+    const seat = new URLSearchParams(window.location.search).get("seat");
+    return seat ? `/room/${roomCode}?seat=${encodeURIComponent(seat)}` : `/room/${roomCode}`;
+  };
+
   const handleCreate = async () => {
     if (!name.trim()) return setError("Pick a name first.");
     setBusy("create");
@@ -39,7 +46,7 @@ export function JoinPanel() {
     try {
       persist();
       const roomCode = await createRoomRequest();
-      router.push(`/room/${roomCode}`);
+      router.push(roomHref(roomCode));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Couldn't create a room.");
       setBusy(null);
@@ -54,7 +61,7 @@ export function JoinPanel() {
     setBusy("join");
     setError(null);
     persist();
-    router.push(`/room/${target}`);
+    router.push(roomHref(target));
   };
 
   return (
