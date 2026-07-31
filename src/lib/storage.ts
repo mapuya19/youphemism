@@ -15,13 +15,32 @@ import { Redis } from "@upstash/redis";
 import { GameState } from "./types";
 
 const ROOM_TTL_SECONDS = 60 * 60 * 6;
-const key = (code: string) => `youphemism:room:${code}`;
+
+/**
+ * Key namespace, derived from the deployment environment.
+ *
+ * The Vercel Redis integration attaches one database to every environment you
+ * tick, so Production and Preview share storage. Namespacing keeps them apart:
+ * a preview deployment running modified game logic can then never read or
+ * overwrite a live room whose stored shape it no longer understands. Room codes
+ * are also free to collide across environments.
+ */
+const NAMESPACE = (() => {
+  const env = process.env.VERCEL_ENV; // "production" | "preview" | "development"
+  if (!env || env === "production") return "youphemism";
+  return `youphemism:${env}`;
+})();
+
+const key = (code: string) => `${NAMESPACE}:room:${code}`;
 /**
  * A tiny companion key holding only the revision number. Stream subscribers
  * poll this instead of re-reading the whole room, which cuts streaming
  * bandwidth by orders of magnitude (a few bytes per poll instead of ~20KB).
  */
-const revKey = (code: string) => `youphemism:rev:${code}`;
+const revKey = (code: string) => `${NAMESPACE}:rev:${code}`;
+
+/** Exposed for diagnostics and tests. */
+export const keyNamespace = () => NAMESPACE;
 
 /** CAS write: only overwrite if the persisted `rev` equals `expectedRev`. */
 const CAS_SCRIPT = `

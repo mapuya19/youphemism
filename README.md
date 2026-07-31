@@ -153,15 +153,32 @@ coiner callbacks, one-point awards, the secrecy rules and the auth rejections.
    connect it. That injects `KV_REST_API_URL` and `KV_REST_API_TOKEN`
    automatically — the app accepts either those or the `UPSTASH_REDIS_REST_*`
    pair.
-3. Deploy. Nothing else to configure.
+3. **Redeploy.** Environment variables only apply to new builds, so the first
+   deployment won't see the database.
 
-Optionally set `NEXT_PUBLIC_SITE_URL` so social share cards resolve absolutely.
+Recommended database settings:
+
+| Setting | Choose | Why |
+|---|---|---|
+| Type | **Regional** | Global replicates every write to each read region and bills each replication as a command. All traffic originates from one Vercel region, so it buys nothing here. |
+| Region | **Same as your Vercel region** (`iad1` → `us-east-1`) | The stream polls ~1.25×/sec per player; keep the round-trip in-datacenter. |
+| Eviction | **On** | Rooms already expire after 6 hours, but with eviction off Redis *rejects writes* once full — that would break live games. With it on, an abandoned room gets dropped instead. |
+| Auto-upgrade | Off | Failing loudly beats a surprise bill. |
+
+Storage keys are namespaced by `VERCEL_ENV`, so attaching one database to both
+Production and Preview is safe: a preview deployment running modified game logic
+can't read or overwrite a live room. Leave the **Development** environment
+unattached — local `npm run dev` then uses the in-memory store and never touches
+shared state.
+
+Optionally set `NEXT_PUBLIC_SITE_URL` to your final domain so link previews
+resolve absolutely.
 
 > Without Redis the app still deploys and runs, but each serverless instance
 > keeps its own copy of state and players will drift apart. Redis is required for
 > real multiplayer.
 
-Room state lives under `youphemism:room:<CODE>` with a rolling 6-hour TTL, so
+Room state lives under `<namespace>:room:<CODE>` with a rolling 6-hour TTL, so
 there's nothing to clean up.
 
 ## Licence

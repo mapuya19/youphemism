@@ -101,6 +101,17 @@ change the ruleset, update it.
   locally. Never "fix" this by putting state in a module-level variable inside a
   route handler.
 - Rooms expire after 6 hours (`ROOM_TTL_SECONDS`), refreshed on every write.
+- Storage keys are namespaced by `VERCEL_ENV` (`src/lib/storage.ts`). One Redis
+  database can therefore serve Production and Preview safely. Don't remove the
+  namespacing — a preview branch that changes `GameState`'s shape would
+  otherwise corrupt live rooms.
+- The SSE loop polls a small `<namespace>:rev:<CODE>` key and only reads the full
+  room when the revision moves, a deadline elapses, or the keepalive is due. Both
+  keys are written by the same atomic Lua script, so they can't drift. If you add
+  another write path, keep them together.
+- Cost dials, if ever needed: `POLL_MS` in the stream route and `HEARTBEAT_MS` in
+  `useRoom.ts`. Doubling both roughly halves Redis command usage at the cost of
+  responsiveness.
 - The defined pile must give each player at least `USE_IT_ROUNDS` cards. With
   3+ players it always does (`N × (N−1)` cards, `N−1` each); if you change hand
   or round counts, re-check `beginRoundTwo()`.
