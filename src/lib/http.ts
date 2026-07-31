@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { NotFoundError, RuleError } from "@/lib/rooms";
+import { MisconfiguredError, NotFoundError, RuleError } from "@/lib/rooms";
 import { TOKEN_HEADER, derivePlayerId } from "@/lib/identity";
 
 export const jsonError = (message: string, status: number) =>
@@ -9,6 +9,10 @@ export const jsonError = (message: string, status: number) =>
 export function toResponse(error: unknown) {
   if (error instanceof RuleError) return jsonError(error.message, 409);
   if (error instanceof NotFoundError) return jsonError(error.message, 404);
+  if (error instanceof MisconfiguredError) {
+    console.error("[youphemism] storage misconfigured", error.message);
+    return jsonError(error.message, 503);
+  }
   console.error("[youphemism] unhandled error", error);
   return jsonError("Something went wrong on our end.", 500);
 }

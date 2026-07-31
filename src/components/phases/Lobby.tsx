@@ -1,5 +1,7 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Avatar } from "@/components/ui";
 import {
   HAND_SIZE,
@@ -11,8 +13,22 @@ import {
 import type { PhaseProps } from "./types";
 
 export function Lobby({ view, send }: PhaseProps) {
+  const router = useRouter();
+  const [leaving, setLeaving] = useState(false);
   const missing = MIN_PLAYERS - view.players.length;
   const enough = missing <= 0;
+  /** Leaving as the only player retires the room entirely. */
+  const isLastPlayer = view.players.length <= 1;
+
+  const leave = async () => {
+    setLeaving(true);
+    try {
+      await send({ type: "leave" });
+    } catch {
+      /* leaving is best-effort — go home regardless */
+    }
+    router.push("/");
+  };
 
   return (
     <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
@@ -63,15 +79,25 @@ export function Lobby({ view, send }: PhaseProps) {
         <div className="mt-7 flex flex-wrap items-center gap-3">
           <button
             className="btn-primary"
-            disabled={!view.you.isHost || !enough}
+            disabled={!view.you.isHost || !enough || leaving}
             onClick={() => void send({ type: "start_game" }).catch(() => {})}
           >
             {view.you.isHost ? "Start the game" : "Waiting for the host…"}
+          </button>
+          <button className="btn-ghost" disabled={leaving} onClick={() => void leave()}>
+            {isLastPlayer ? "Close room" : "Leave room"}
           </button>
           <span className="text-xs text-paper/40">
             {view.players.length}/{MAX_PLAYERS} players
           </span>
         </div>
+
+        {isLastPlayer && (
+          <p className="mt-3 text-xs text-paper/40">
+            You&apos;re the only one here, so closing discards the room and its
+            code straight away.
+          </p>
+        )}
       </div>
 
       <aside className="surface flex flex-col gap-4 p-6">

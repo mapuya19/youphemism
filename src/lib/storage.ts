@@ -150,16 +150,77 @@ function memoryStore(): RoomStore {
 
 let cached: RoomStore | null = null;
 
+/**
+ * Locate Redis credentials. Vercel's Upstash integration injects
+ * `KV_REST_API_URL` / `KV_REST_API_TOKEN`; a direct Upstash setup uses
+ * `UPSTASH_REDIS_REST_*`. Connecting an integration with a custom prefix
+ * produces e.g. `STORAGE_KV_REST_API_URL`, so we also scan for suffix matches
+ * rather than silently degrading to the in-memory store.
+ */
+export function resolveCredentials(): {
+  url?: string;
+  token?: string;
+  source: string | null;
+} {
+  const env = process.env;
+  const pairs: [string, string][] = [
+    ["KV_REST_API_URL", "KV_REST_API_TOKEN"],
+    ["UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"],
+  ];
+
+  for (const [urlKey, tokenKey] of pairs) {
+    if (env[urlKey] && env[tokenKey]) {
+      return { url: env[urlKey], token: env[tokenKey], source: urlKey };
+    }
+  }
+
+  // Prefixed variants, e.g. STORAGE_KV_REST_API_URL / STORAGE_KV_REST_API_TOKEN.
+  for (const urlKey of Object.keys(env)) {
+    if (!urlKey.endsWith("KV_REST_API_URL") && !urlKey.endsWith("REDIS_REST_URL")) {
+      continue;
+    }
+    const tokenKey = urlKey.replace(/URL$/, "TOKEN");
+    if (env[urlKey] && env[tokenKey]) {
+      return { url: env[urlKey], token: env[tokenKey], source: urlKey };
+    }
+  }
+
+  return { source: null };
+}
+
 export function getStore(): RoomStore {
   if (cached) return cached;
-  const url = process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL;
-  const token = process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN;
+  const { url, token } = resolveCredentials();
   cached = url && token ? redisStore(new Redis({ url, token })) : memoryStore();
   return cached;
 }
 
-export const isPersistent = () =>
-  Boolean(
-    (process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL) &&
-      (process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN),
-  );
+export const isPersistent = () => resolveCredentials().source !== null;
+
+/** True when we're running on Vercel, where the in-memory store cannot work. */
+export const requiresPersistence = () =>
+  Boolean(process.env.VERCEL) && process.env.NODE_ENV === "production";
+
+/**
+ * Prove connectivity end to end: write a probe key, read it back, delete it.
+ * Used by `/api/health` so a misconfiguration is one request away from being
+ * diagnosed rather than showing up as a mysterious "room not found".
+ */
+export async function probe(): Promise<{ ok: boolean; error?: string }> {
+  const { url, token } = resolveCredentials();
+  if (!url || !token) return { ok: false, error: "No Redis credentials found." };
+  try {
+    const redis = new Redis({ url, token });
+    const probeKey = `${NAMESPACE}:probe:${Math.random().toString(36).slice(2)}`;
+    const stamp = String(Date.now());
+    await redis.set(probeKey, stamp, { ex: 30 });
+    const readBack = await redis.get<string | number>(probeKey);
+    await redis.del(probeKey);
+    if (String(readBack) !== stamp) {
+      return { ok: false, error: "Probe key did not read back correctly." };
+    }
+    return { ok: true };
+  } catch (error) {
+    return { ok: false, error: error instanceof Error ? error.message : "Unknown error" };
+  }
+}

@@ -9,7 +9,7 @@
 
 import { RuleError, applyAction, createGame, tick } from "./engine";
 import { generateRoomCode, randomSeed } from "./rng";
-import { getStore } from "./storage";
+import { getStore, isPersistent, requiresPersistence } from "./storage";
 import { Action, GameState } from "./types";
 import { normalizeCode } from "./code";
 
@@ -31,7 +31,29 @@ export class ConflictError extends Error {
   }
 }
 
+/**
+ * Raised when deployed without Redis. The in-memory fallback is per-instance, so
+ * a room created by one serverless invocation is invisible to the next — which
+ * surfaces as a baffling "room not found" immediately after creating a room.
+ * Better to say exactly what's wrong.
+ */
+export class MisconfiguredError extends Error {
+  constructor() {
+    super(
+      "Server storage isn't configured, so rooms can't be shared between " +
+        "requests. Connect a Redis database and redeploy — environment variables " +
+        "only apply to new builds.",
+    );
+    this.name = "MisconfiguredError";
+  }
+}
+
+function assertStorageUsable() {
+  if (requiresPersistence() && !isPersistent()) throw new MisconfiguredError();
+}
+
 export async function createRoom(): Promise<GameState> {
+  assertStorageUsable();
   const store = getStore();
   for (let attempt = 0; attempt < 8; attempt++) {
     const code = generateRoomCode();
@@ -89,7 +111,14 @@ export async function mutateRoom(
     tick(state, now);
     const next = applyAction(state, playerId, action, now);
 
-    if (await store.compareAndSet(next, expectedRev)) return next;
+    if (await store.compareAndSet(next, expectedRev)) {
+      // An empty lobby is unreachable — nobody holds its code and nobody can
+      // rejoin it meaningfully. Reclaim it now rather than waiting out the TTL.
+      if (next.players.length === 0) {
+        await store.delete(code).catch(() => {});
+      }
+      return next;
+    }
     lastError = new ConflictError();
     // Small jittered backoff to break up simultaneous retries.
     await new Promise((r) => setTimeout(r, 15 + Math.random() * 40));
