@@ -31,11 +31,11 @@ export function formatClock(seconds: number | null): string {
 
 export const PHASE_LABEL: Record<string, string> = {
   lobby: "Lobby",
-  coin: "Round 1 · Coin It",
-  coin_vote: "Round 1 · Vote",
-  coin_results: "Round 1 · Results",
-  story: "Round 2 · Story Time",
-  story_vote: "Round 2 · Vote",
-  story_results: "Round 2 · Results",
+  category: "Round 1 · Category",
+  judging: "Round 1 · Judging",
+  category_result: "Round 1 · Winner",
+  useit: "Round 2 · Use It!",
+  useit_vote: "Round 2 · Vote",
+  useit_result: "Round 2 · Results",
   game_over: "Final scores",
 };

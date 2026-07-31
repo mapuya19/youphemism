@@ -1,88 +1,92 @@
 /**
  * Shared domain types for Youphemism.
  *
- * These types are used by both the server-authoritative game engine
- * (`src/lib/engine.ts`) and the React client. Anything the client is allowed
- * to see is produced by `projectForPlayer()` in `src/lib/projection.ts`.
+ * Used by the server-authoritative engine (`src/lib/engine.ts`) and the React
+ * client. Anything a player is allowed to see is produced by
+ * `projectForPlayer()` in `src/lib/projection.ts`.
  */
 
 export const MIN_PLAYERS = 3;
 export const MAX_PLAYERS = 10;
-export const MAX_SLANG_LENGTH = 60;
-export const MAX_DEFINITION_LENGTH = 220;
+
+/** Youphemism cards in hand during round 1. */
+export const HAND_SIZE = 5;
+/** USE IT! cards revealed each round-2 turn. */
+export const USE_IT_COUNT = 4;
+/** How many times the USE IT! round is played. */
+export const USE_IT_ROUNDS = 2;
+
+export const MAX_DEFINITION_LENGTH = 240;
 export const MAX_STORY_LENGTH = 700;
 export const MAX_NAME_LENGTH = 16;
 
-/** How many category cards a player may choose between in the coin phase. */
-export const CATEGORIES_PER_PLAYER = 2;
-/** How many other players' slang entries a player must work into their story. */
-export const SLANG_PER_STORY = 3;
-
 export type Phase =
   | "lobby"
-  /** Round 1: everyone privately invents slang for their phrase + category. */
-  | "coin"
-  /** Round 1: submissions are revealed and voted on. */
-  | "coin_vote"
-  /** Round 1: results / scoreboard beat. */
-  | "coin_results"
-  /** Round 2: everyone privately writes a story using assigned slang. */
-  | "story"
-  /** Round 2: stories are revealed and voted on. */
-  | "story_vote"
-  /** Round 2: results, including callback points. */
-  | "story_results"
+  /** Round 1: the judge's category is up; everyone else plays a card + defines it. */
+  | "category"
+  /** Round 1: all pitches are in; the judge picks a winner. */
+  | "judging"
+  /** Round 1: the winner is revealed before the judge rotates. */
+  | "category_result"
+  /** Round 2: pick a slang card + a USE IT! card and write the story. */
+  | "useit"
+  /** Round 2: everyone votes on the funniest story that isn't their own. */
+  | "useit_vote"
+  /** Round 2: reveal, award points to storyteller and original coiner. */
+  | "useit_result"
   | "game_over";
 
 export interface Player {
   id: string;
   name: string;
-  /** Avatar seed index -> colour/emoji pair in the UI. */
   avatar: number;
   isHost: boolean;
+  /** One point per card won, exactly as in the physical game. */
   score: number;
   connected: boolean;
-  /** Epoch ms of the last heartbeat/action we saw from this player. */
   lastSeenAt: number;
 }
 
-export interface PhraseCard {
+export interface Card {
   id: string;
   text: string;
 }
 
-export interface CategoryCard {
+/**
+ * A Youphemism card that has been played and given a meaning. These are the
+ * cards saved into the "defined pile" for round 2 — their meanings carry over.
+ */
+export interface SlangCard {
   id: string;
-  text: string;
-}
-
-/** A player's private hand for the coin (round 1) phase. */
-export interface CoinHand {
-  phrase: PhraseCard;
-  categories: CategoryCard[];
-}
-
-/** A slang term invented in round 1. */
-export interface SlangEntry {
-  id: string;
+  /** Who invented the meaning in round 1. */
   authorId: string;
-  /** The common phrase that was redefined. */
-  phrase: string;
-  /** The absurd category constraint the author picked. */
-  category: string;
-  /** The invented slang term. */
+  /** The Youphemism card text, e.g. "zoo exhibit". */
   term: string;
-  /** The absurd definition. */
+  /** The category it was defined against, e.g. "senior pranks". */
+  category: string;
+  /** The invented meaning. */
   definition: string;
-  votes: string[];
+  /** Which round-1 turn it came from (1-indexed), for display. */
+  turn: number;
 }
 
-export interface StoryEntry {
+/** A round-1 pitch, before the judge has decided. */
+export interface Pitch {
   id: string;
   authorId: string;
-  prompt: string;
-  /** Slang ids the author was required to use. */
-  slangIds: string[];
+  cardId: string;
+  term: string;
+  definition: string;
+}
+
+/** A round-2 story. */
+export interface Story {
+  id: string;
+  authorId: string;
+  /** The slang card from the player's dealt round-2 hand. */
+  slangId: string;
+  /** The shared USE IT! card the story hangs off. */
+  useItId: string;
   text: string;
   votes: string[];
 }
@@ -94,60 +98,73 @@ export interface ScoreDelta {
 }
 
 export interface GameSettings {
-  /** Seconds allowed for the coin (writing slang) phase. */
-  coinSeconds: number;
-  /** Seconds allowed for the story writing phase. */
+  /** Seconds for round-1 pitch writing. */
+  pitchSeconds: number;
+  /** Seconds for the judge to decide. */
+  judgeSeconds: number;
+  /** Seconds for round-2 story writing. */
   storySeconds: number;
-  /** Seconds allowed for each voting phase. */
+  /** Seconds for round-2 voting. */
   voteSeconds: number;
-  /** Points awarded per vote in round 1. */
-  coinVotePoints: number;
-  /** Points awarded per vote in round 2. */
-  storyVotePoints: number;
-  /** Points an author earns per vote a story that used their slang receives. */
-  callbackPoints: number;
 }
 
 export const DEFAULT_SETTINGS: GameSettings = {
-  coinSeconds: 150,
+  pitchSeconds: 150,
+  judgeSeconds: 90,
   storySeconds: 240,
   voteSeconds: 120,
-  coinVotePoints: 2,
-  storyVotePoints: 3,
-  callbackPoints: 1,
 };
 
 export interface GameState {
-  /** Room code, e.g. `WOBBLE`. Also the storage key. */
   code: string;
-  /** Monotonic revision; bumped on every mutation. Used for SSE diffing + CAS. */
+  /** Monotonic revision; bumped on every mutation. Drives SSE diffing + CAS. */
   rev: number;
   createdAt: number;
   updatedAt: number;
   phase: Phase;
   settings: GameSettings;
   players: Player[];
-  /** Deterministic PRNG state so replays/tests are reproducible. */
+  /** Deterministic PRNG state, so transitions are reproducible. */
   seed: number;
-  /** Remaining draw piles (ids into the decks). */
-  phraseDeck: string[];
+
+  /* Draw piles (card ids). */
+  youphemismDeck: string[];
   categoryDeck: string[];
-  promptDeck: string[];
-  /** playerId -> private coin hand. Never sent to other players. */
-  hands: Record<string, CoinHand>;
-  /** Round 1 submissions, keyed by author id. */
-  slang: Record<string, SlangEntry>;
-  /** playerId -> the slang ids they must use in round 2. */
-  assignments: Record<string, string[]>;
-  /** playerId -> story prompt text for round 2. */
-  prompts: Record<string, string>;
-  /** Round 2 submissions, keyed by author id. */
-  stories: Record<string, StoryEntry>;
-  /** Epoch ms when the current phase auto-advances. `null` = untimed. */
+  useItDeck: string[];
+
+  /** Round-1 hands: playerId -> Youphemism card ids. Private. */
+  hands: Record<string, string[]>;
+
+  /* Round 1 turn tracking. */
+  /** Seat order; each player judges exactly once. */
+  turnOrder: string[];
+  /** Index into `turnOrder` of the current judge. */
+  turnIndex: number;
+  /** The category card the judge revealed this turn. */
+  category: Card | null;
+  /** This turn's pitches, keyed by author. */
+  pitches: Record<string, Pitch>;
+  /** Pitch id the judge chose this turn. */
+  judgePick: string | null;
+
+  /** Every card played in round 1, meanings intact. */
+  definedPile: SlangCard[];
+
+  /* Round 2 state. */
+  /** Which USE IT! round we're on (1..USE_IT_ROUNDS). */
+  useItRound: number;
+  /** playerId -> slang card ids dealt from the defined pile. Private. */
+  slangHands: Record<string, string[]>;
+  /** Slang ids already spent this game, so a card can't be reused. */
+  spentSlang: string[];
+  /** The four shared USE IT! cards on the table. */
+  useItCards: Card[];
+  /** This turn's stories, keyed by author. */
+  stories: Record<string, Story>;
+
+  /** Epoch ms when the phase auto-advances; null = untimed. */
   deadline: number | null;
-  /** Score changes produced by the most recent scoring step. */
   lastDeltas: ScoreDelta[];
-  /** Short human-readable log for the activity feed. */
   log: { at: number; text: string }[];
 }
 
@@ -161,8 +178,9 @@ export type Action =
   | { type: "heartbeat" }
   | { type: "update_settings"; settings: Partial<GameSettings> }
   | { type: "start_game" }
-  | { type: "submit_slang"; categoryId: string; term: string; definition: string }
-  | { type: "submit_story"; text: string }
+  | { type: "submit_pitch"; cardId: string; definition: string }
+  | { type: "judge_pick"; pitchId: string }
+  | { type: "submit_story"; slangId: string; useItId: string; text: string }
   | { type: "vote"; targetId: string }
   | { type: "unvote" }
   | { type: "advance" }
@@ -174,10 +192,36 @@ export type Action =
 /* ------------------------------------------------------------------ */
 
 export interface PublicPlayer extends Omit<Player, "lastSeenAt"> {
-  /** Whether this player has submitted for the current writing phase. */
+  /** Submitted for the current writing phase. */
   ready: boolean;
-  /** Whether this player has cast a vote in the current voting phase. */
   hasVoted: boolean;
+  isJudge: boolean;
+  /** Cards left in hand (count only — contents are private). */
+  handCount: number;
+}
+
+/** A pitch as shown to clients; `authorId` is null until the judge decides. */
+export interface RevealedPitch {
+  id: string;
+  term: string;
+  definition: string;
+  authorId: string | null;
+  won: boolean;
+}
+
+/** A story as shown to clients; `authorId` is null until votes are counted. */
+export interface RevealedStory {
+  id: string;
+  useIt: string;
+  term: string;
+  definition: string;
+  text: string;
+  authorId: string | null;
+  /** Who coined the slang used — revealed with the results. */
+  coinerId: string | null;
+  voteCount: number | null;
+  voterIds: string[] | null;
+  won: boolean;
 }
 
 export interface ClientView {
@@ -186,48 +230,40 @@ export interface ClientView {
   phase: Phase;
   settings: GameSettings;
   players: PublicPlayer[];
+
+  /** Round 1 progress: turn `turn` of `totalTurns`. */
+  turn: number;
+  totalTurns: number;
+  /** Round 2 progress. */
+  useItRound: number;
+  useItRounds: number;
+
+  judgeId: string | null;
+  category: Card | null;
+  useItCards: Card[];
+
   you: {
     id: string;
     isHost: boolean;
-    /** Private coin hand — only present during the coin phase. */
-    hand: CoinHand | null;
-    /** Your own round 1 submission, if any. */
-    slang: SlangEntry | null;
-    /** Slang you must use in round 2 (with author names hidden until results). */
-    assignedSlang: SlangEntry[];
-    prompt: string | null;
-    story: StoryEntry | null;
+    isJudge: boolean;
+    /** Round-1 Youphemism cards in hand. */
+    hand: Card[];
+    /** Round-2 slang cards in hand (unspent). */
+    slangHand: SlangCard[];
+    pitch: Pitch | null;
+    story: Story | null;
     votedFor: string | null;
   };
-  /** Revealed round 1 entries (author hidden until results). */
-  slangBoard: RevealedSlang[];
-  /** Revealed round 2 entries (author hidden until results). */
+
+  pitchBoard: RevealedPitch[];
   storyBoard: RevealedStory[];
+
+  /** The defined pile, revealed from round 2 onward — the group's Slangbook. */
+  slangbook: SlangCard[];
+
   deadline: number | null;
   /** Server clock at projection time, so clients can correct drift. */
   serverNow: number;
   lastDeltas: ScoreDelta[];
   log: { at: number; text: string }[];
-}
-
-export interface RevealedSlang {
-  id: string;
-  phrase: string;
-  category: string;
-  term: string;
-  definition: string;
-  /** Null while authorship is still secret. */
-  authorId: string | null;
-  voteCount: number | null;
-  voterIds: string[] | null;
-}
-
-export interface RevealedStory {
-  id: string;
-  prompt: string;
-  text: string;
-  slang: { term: string; definition: string; authorId: string | null }[];
-  authorId: string | null;
-  voteCount: number | null;
-  voterIds: string[] | null;
 }

@@ -5,20 +5,20 @@ import { MIN_PLAYERS, MAX_PLAYERS } from "@/lib/types";
 const steps = [
   {
     tag: "Round 1",
-    title: "Coin it",
-    body: "You get an everyday phrase and two absurd categories. Pick one and invent brand-new slang that redefines the phrase. Everyone votes, anonymously.",
+    title: "Category",
+    body: "You hold five Youphemism cards — ordinary things like hot dog, Ikea, clown car. The judge reveals a category, and you play a card and invent slang that fits it.",
     accent: "text-lime",
   },
   {
-    tag: "Round 2",
-    title: "Story time",
-    body: "Every term goes into the Slangbook. You get a prompt and three of other people's terms — write the story that makes them land.",
-    accent: "text-sky",
+    tag: "The judge",
+    title: "Picks a winner",
+    body: "“Ikea is the senior prank where you take apart all the furniture in school.” Best pitch takes the card — that's a point. Everyone judges once.",
+    accent: "text-tangerine",
   },
   {
-    tag: "Payoff",
-    title: "Callbacks",
-    body: "Votes score the storyteller, and the person who coined each term scores too. Great slang keeps paying you all game.",
+    tag: "Round 2",
+    title: "Use It!",
+    body: "Every card played gets dealt back out, meanings intact. Pair one with a story prompt and tell it. The vote winner scores — and so does whoever coined the slang.",
     accent: "text-bubble",
   },
 ];
@@ -37,9 +37,8 @@ export default function HomePage() {
           </span>
         </h1>
         <p className="max-w-2xl text-lg text-paper/70 md:text-xl">
-          The party game of absurd slang. Redefine ordinary phrases through
-          ridiculous categories — then watch your inventions come back in
-          everyone else&apos;s stories.
+          The witty party game where you re-invent the meanings of common
+          things — then get to use them. Create the slang, then use it wisely.
         </p>
       </header>
 
@@ -73,7 +72,7 @@ export default function HomePage() {
 
       <footer className="mt-auto flex flex-wrap items-center justify-between gap-3 border-t border-white/10 pt-6 text-xs text-paper/40">
         <p>
-          An unofficial fan-made digital adaptation. Youphemism is created by
+          An unofficial fan-made digital adaptation of Youphemism, created by
           Daniel Huang, Raymond Shi and Joanna Shan.
         </p>
         <Link

@@ -1,37 +1,52 @@
 /**
  * Server -> client projection.
  *
- * The full `GameState` contains information players must not see (other
- * players' hands, who wrote which anonymous entry, unrevealed votes). Every
- * response goes through `projectForPlayer` so secrecy is enforced in exactly
- * one place.
+ * `GameState` holds information players must not see: other people's hands,
+ * who wrote which anonymous pitch or story, and running vote tallies. Every
+ * response passes through `projectForPlayer`, so secrecy is enforced in exactly
+ * one place and is covered by tests.
  */
 
-import { hasSubmitted, votedFor } from "./engine";
+import {
+  currentJudgeId,
+  handCards,
+  hasSubmitted,
+  slangHandCards,
+  votedFor,
+} from "./engine";
 import {
   ClientView,
   GameState,
   PublicPlayer,
-  RevealedSlang,
+  RevealedPitch,
   RevealedStory,
-  SlangEntry,
+  SlangCard,
+  USE_IT_ROUNDS,
 } from "./types";
 
-/** Authorship and vote tallies only become public at the results screens. */
-function coinRevealed(phase: GameState["phase"]) {
-  return phase === "coin_results" || phase === "story" || phase === "story_vote" ||
-    phase === "story_results" || phase === "game_over";
-}
+/** Pitch authorship is secret while the judge deliberates. */
+const pitchesRevealed = (phase: GameState["phase"]) => phase === "category_result";
 
-function storyRevealed(phase: GameState["phase"]) {
-  return phase === "story_results" || phase === "game_over";
-}
+/** Story authorship and tallies are secret until the round is scored. */
+const storiesRevealed = (phase: GameState["phase"]) =>
+  phase === "useit_result" || phase === "game_over";
+
+/** The defined pile becomes common knowledge once round 2 begins. */
+const slangbookVisible = (phase: GameState["phase"]) =>
+  phase === "useit" || phase === "useit_vote" || phase === "useit_result" ||
+  phase === "game_over";
 
 export function projectForPlayer(
   state: GameState,
   playerId: string | null,
   now: number,
 ): ClientView {
+  const judgeId = currentJudgeId(state);
+  const inRoundOne =
+    state.phase === "category" ||
+    state.phase === "judging" ||
+    state.phase === "category_result";
+
   const players: PublicPlayer[] = state.players.map((p) => ({
     id: p.id,
     name: p.name,
@@ -41,58 +56,56 @@ export function projectForPlayer(
     connected: p.connected,
     ready: hasSubmitted(state, p.id),
     hasVoted: votedFor(state, p.id) !== null,
+    isJudge: inRoundOne && p.id === judgeId,
+    handCount: inRoundOne
+      ? (state.hands[p.id] ?? []).length
+      : slangHandCards(state, p.id).length,
   }));
 
   const me = playerId ? state.players.find((p) => p.id === playerId) : undefined;
-  const slangById = new Map(Object.values(state.slang).map((s) => [s.id, s]));
+  const showPitchAuthors = pitchesRevealed(state.phase);
+  const showStoryAuthors = storiesRevealed(state.phase);
 
-  const showCoinAuthors = coinRevealed(state.phase);
-  const showStoryAuthors = storyRevealed(state.phase);
-
-  const slangBoard: RevealedSlang[] =
-    state.phase === "coin_vote" || showCoinAuthors
-      ? sortStable(Object.values(state.slang)).map((entry) => ({
-          id: entry.id,
-          phrase: entry.phrase,
-          category: entry.category,
-          term: entry.term,
-          definition: entry.definition,
-          authorId: showCoinAuthors ? entry.authorId : null,
-          voteCount: showCoinAuthors ? entry.votes.length : null,
-          voterIds: showCoinAuthors ? entry.votes : null,
+  const pitchBoard: RevealedPitch[] =
+    state.phase === "judging" || showPitchAuthors
+      ? stable(Object.values(state.pitches)).map((pitch) => ({
+          id: pitch.id,
+          term: pitch.term,
+          definition: pitch.definition,
+          authorId: showPitchAuthors ? pitch.authorId : null,
+          won: showPitchAuthors && state.judgePick === pitch.id,
         }))
       : [];
+
+  const slangById = new Map(state.definedPile.map((card) => [card.id, card]));
+  const topVotes = Math.max(
+    0,
+    ...Object.values(state.stories).map((s) => s.votes.length),
+  );
 
   const storyBoard: RevealedStory[] =
-    state.phase === "story_vote" || showStoryAuthors
-      ? sortStable(Object.values(state.stories)).map((story) => ({
-          id: story.id,
-          prompt: story.prompt,
-          text: story.text,
-          slang: story.slangIds.map((id) => {
-            const entry = slangById.get(id);
-            return {
-              term: entry?.term ?? "?",
-              definition: entry?.definition ?? "",
-              authorId: showStoryAuthors ? (entry?.authorId ?? null) : null,
-            };
-          }),
-          authorId: showStoryAuthors ? story.authorId : null,
-          voteCount: showStoryAuthors ? story.votes.length : null,
-          voterIds: showStoryAuthors ? story.votes : null,
-        }))
+    state.phase === "useit_vote" || showStoryAuthors
+      ? stable(Object.values(state.stories)).map((story) => {
+          const slang = slangById.get(story.slangId);
+          return {
+            id: story.id,
+            useIt:
+              state.useItCards.find((card) => card.id === story.useItId)?.text ?? "",
+            term: slang?.term ?? "?",
+            definition: slang?.definition ?? "",
+            text: story.text,
+            authorId: showStoryAuthors ? story.authorId : null,
+            coinerId: showStoryAuthors ? (slang?.authorId ?? null) : null,
+            voteCount: showStoryAuthors ? story.votes.length : null,
+            voterIds: showStoryAuthors ? story.votes : null,
+            won: showStoryAuthors && topVotes > 0 && story.votes.length === topVotes,
+          };
+        })
       : [];
 
-  const assignedSlang: SlangEntry[] = me
-    ? (state.assignments[me.id] ?? [])
-        .map((id) => slangById.get(id))
-        .filter((s): s is SlangEntry => Boolean(s))
-        .map((s) => ({
-          ...s,
-          // Hide who wrote the slang you're being asked to use until results.
-          authorId: showCoinAuthors ? s.authorId : "",
-          votes: [],
-        }))
+  // The slangbook is shared knowledge in round 2, but never attributed early.
+  const slangbook: SlangCard[] = slangbookVisible(state.phase)
+    ? state.definedPile.map((card) => ({ ...card }))
     : [];
 
   return {
@@ -101,18 +114,31 @@ export function projectForPlayer(
     phase: state.phase,
     settings: state.settings,
     players,
+
+    turn: state.turnIndex + 1,
+    totalTurns: state.turnOrder.length,
+    useItRound: state.useItRound,
+    useItRounds: USE_IT_ROUNDS,
+
+    judgeId: inRoundOne ? judgeId : null,
+    category: state.category,
+    useItCards: state.useItCards,
+
     you: {
       id: me?.id ?? "",
       isHost: me?.isHost ?? false,
-      hand: me && state.phase === "coin" ? (state.hands[me.id] ?? null) : null,
-      slang: me ? (state.slang[me.id] ?? null) : null,
-      assignedSlang,
-      prompt: me ? (state.prompts[me.id] ?? null) : null,
+      isJudge: Boolean(me && inRoundOne && me.id === judgeId),
+      hand: me && inRoundOne ? handCards(state, me.id) : [],
+      slangHand: me && !inRoundOne ? slangHandCards(state, me.id) : [],
+      pitch: me ? (state.pitches[me.id] ?? null) : null,
       story: me ? (state.stories[me.id] ?? null) : null,
       votedFor: me ? votedFor(state, me.id) : null,
     },
-    slangBoard,
+
+    pitchBoard,
     storyBoard,
+    slangbook,
+
     deadline: state.deadline,
     serverNow: now,
     lastDeltas: state.lastDeltas,
@@ -120,7 +146,7 @@ export function projectForPlayer(
   };
 }
 
-/** Stable, id-based ordering so the anonymous board doesn't hint at authorship. */
-function sortStable<T extends { id: string }>(items: T[]): T[] {
+/** Order by id, never by author, so the board can't hint at authorship. */
+function stable<T extends { id: string }>(items: T[]): T[] {
   return items.slice().sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
 }

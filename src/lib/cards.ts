@@ -1,167 +1,158 @@
 /**
  * Card content for Youphemism.
  *
- * `PHRASES` are everyday sayings that players redefine.
- * `CATEGORIES` are the absurd constraints that force the redefinition sideways.
- * `PROMPTS` are round-two story setups.
+ * - `YOUPHEMISMS` are ordinary things — the nouns players redefine. Round 1
+ *   deals five of these to each player, and they choose which one to play.
+ * - `CATEGORIES` are what the judge reveals; a played card must be redefined as
+ *   a member of that category ("Ikea is the senior prank where…").
+ * - `USE_ITS` are round 2 story openers.
  *
- * Content is fan-made and intentionally original — it is not transcribed from
- * the published deck.
+ * Content is original fan-made writing, not transcribed from the retail deck.
  */
 
-export const PHRASES: string[] = [
-  "break the ice",
-  "spill the tea",
-  "burn the midnight oil",
-  "throw shade",
-  "hit the hay",
-  "bite the bullet",
-  "read the room",
-  "call it a night",
-  "cut to the chase",
-  "let the cat out of the bag",
-  "under the weather",
-  "piece of cake",
-  "cost an arm and a leg",
-  "back to square one",
-  "pull yourself together",
-  "beat around the bush",
-  "the ball is in your court",
-  "go down a rabbit hole",
-  "jump the shark",
-  "move the goalposts",
-  "put a pin in it",
-  "circle back",
-  "take it with a grain of salt",
-  "close but no cigar",
-  "wing it",
-  "ghost someone",
-  "touch grass",
-  "living rent free in my head",
-  "main character energy",
-  "chef's kiss",
-  "caught in 4K",
-  "the vibes are off",
-  "sending me",
-  "eat the frog",
-  "boil the ocean",
-  "low-hanging fruit",
-  "shoot your shot",
-  "hold my beer",
-  "a hard pill to swallow",
-  "burning bridges",
-  "the elephant in the room",
-  "pushing up daisies",
-  "raining cats and dogs",
-  "playing devil's advocate",
-  "third wheel",
-  "sunk cost",
-  "keeping up appearances",
-  "clout chasing",
-  "a soft launch",
-  "the walk of shame",
-  "doomscrolling",
-  "the Sunday scaries",
-  "a hard reset",
-  "a whole vibe",
-  "delulu",
-  "gatekeeping",
-  "pulling an all-nighter",
-  "putting out fires",
-  "singing for your supper",
-  "a shot in the dark",
+export const YOUPHEMISMS: string[] = [
+  "hot dog", "Ikea", "musical chairs", "clown car", "bald eagle", "zoo exhibit",
+  "bagpiping", "jury duty", "the Wi-Fi password", "a group project",
+  "leaf blower", "hot yoga", "the DMV", "a trust fall", "speed bump",
+  "karaoke night", "a bounce house", "the buffet", "jet lag", "a fire drill",
+  "the fog machine", "a lazy river", "escape room", "the aux cord",
+  "a paper shredder", "the salad bar", "bumper cars", "a leaf pile",
+  "the ball pit", "a lint roller", "spin class", "the gutter",
+  "a fun size candy bar", "the snooze button", "a revolving door",
+  "the kids table", "a slip and slide", "the vending machine", "a hall pass",
+  "the mall Santa", "a sleeper sofa", "an ice sculpture", "the drive-thru",
+  "a piñata", "the ferris wheel", "a hot tub", "the recycling bin",
+  "a walkie talkie", "the fire pole", "a lava lamp", "an inflatable mattress",
+  "the sprinkler", "a car wash", "the emergency exit", "a bubble bath",
+  "the dishwasher", "a hedge maze", "the pool noodle", "a wheelbarrow",
+  "the trampoline", "a rotisserie chicken", "the elliptical",
+  "a two-for-one deal", "the parking garage", "a hand dryer",
+  "the deep fryer", "a fitted sheet", "the wind chime", "a shopping cart",
+  "the sauna", "a paper cut", "the dog park", "a stress ball",
+  "the golf cart", "a jigsaw puzzle", "the recliner", "a mall kiosk",
+  "the batting cage", "a lint trap", "the fondue pot", "a corn maze",
+  "the intercom", "a boombox", "the panic button", "a lazy Susan",
+  "the crockpot", "a fun run", "the ice machine", "a bean bag chair",
+  "the pothole", "a fanny pack", "the tanning bed", "a nightlight",
+  "the fire escape", "a plunger", "the sunroof", "a diving board",
+  "the mascot", "a leaf skeleton", "the mosh pit", "a moving truck",
+  "the laundromat", "a pop-up tent", "the crosswalk", "a whoopee cushion",
 ];
 
 export const CATEGORIES: string[] = [
-  "a medieval punishment",
-  "an Olympic sport",
-  "a dating app red flag",
-  "a haunted household appliance",
-  "a corporate synergy initiative",
-  "a forbidden dance move",
-  "a smell you can't place",
-  "an unlicensed medical procedure",
-  "a bird's opinion of humans",
-  "a crime committed in a grocery store",
-  "a cursed cooking technique",
-  "a genre of elevator music",
-  "an alien's misunderstanding of Earth",
-  "a wrestling finisher",
-  "a passive-aggressive email tone",
-  "a mandatory team-building exercise",
-  "a bad tattoo",
-  "an unhinged group chat rule",
-  "a way to end a friendship",
-  "a suspicious hobby",
-  "a texture nobody enjoys",
-  "a plumbing emergency",
-  "a lie you tell a dentist",
-  "a ritual performed at 3am",
-  "an amenity at a terrible hotel",
-  "a sound your car shouldn't make",
-  "a moth's life goal",
+  "senior pranks",
+  "a way to break up with someone",
+  "a bad first date",
+  "an unhinged workout",
+  "a haircut nobody asked for",
+  "a way to get out of jury duty",
+  "a suspicious side hustle",
   "a middle school talent show act",
-  "a conspiracy about mailmen",
-  "a snack invented by a villain",
-  "an excuse for missing a wedding",
-  "a superpower with a cruel drawback",
-  "a menu item at a gas station",
-  "a haircut that ruins lives",
-  "a task in a cult onboarding packet",
+  "a wedding tradition",
+  "an excuse for being late",
+  "a cursed cooking technique",
+  "a way to quit your job",
+  "a medieval punishment",
+  "an Olympic event",
+  "a dating app red flag",
+  "a mandatory team-building exercise",
+  "a way to apologise",
+  "a family holiday tradition",
+  "a haunted household chore",
+  "a way to make an entrance",
+  "a bad tattoo",
+  "an unlicensed medical procedure",
+  "a way to get fired",
+  "a forbidden dance move",
+  "a corporate synergy initiative",
+  "a crime committed in a grocery store",
+  "a way to win an argument",
+  "a rejected Olympic sport",
+  "a very specific fear",
+  "a way to flirt badly",
+  "an amenity at a terrible hotel",
+  "a passive-aggressive gesture",
+  "a way to celebrate a promotion",
+  "a rite of passage",
   "a discontinued children's toy",
-  "an ancient trade route",
-  "a workout for one specific muscle",
-  "a scent-based warning system",
-  "a fashion trend among geese",
+  "a menu item at a gas station",
+  "a way to ruin a road trip",
+  "a task in a cult onboarding packet",
+  "a way to get banned from a library",
+  "an emergency contact's worst nightmare",
+  "a bachelor party activity",
+  "a way to intimidate a coworker",
+  "a scandal at a bake sale",
+  "a summer camp activity",
+  "a way to be a bad neighbour",
+  "a reality TV challenge",
+  "a way to lose a friendship",
+  "a haunted amusement park ride",
+  "a wellness trend",
+  "a way to get out of a group chat",
 ];
 
-export const PROMPTS: string[] = [
-  "Explain to your landlord why the bathtub is on the roof.",
-  "Deliver a best-man speech that slowly reveals a crime.",
-  "Write the one-star review that ended a restaurant.",
-  "Narrate a nature documentary about your own household.",
-  "Give a TED Talk on why your last job fired you.",
-  "Testify in court about what happened at the county fair.",
-  "Write the group chat apology that made everything worse.",
-  "Pitch a reality show set entirely inside a laundromat.",
-  "Explain a three-hour gap in your alibi.",
-  "Write the safety briefing for a haunted cruise ship.",
-  "Tell your grandkids how you met your nemesis.",
-  "Report live from the scene of a very small disaster.",
-  "Write the resignation letter you'd never actually send.",
-  "Describe the worst road trip in recorded history.",
-  "Explain to a doctor how you got like this.",
-  "Give the halftime speech for a losing bowling team.",
-  "Write the museum plaque for an extremely cursed object.",
-  "Recount the wedding toast that started a family feud.",
-  "Narrate the security footage from 4:57am.",
-  "Write the voicemail that got you uninvited to Thanksgiving.",
-  "Explain the origin of your town's strangest holiday.",
-  "Write the closing argument in the trial of a raccoon.",
-  "Give a guided tour of the worst apartment in the city.",
-  "Describe the moment your streak of good luck ended.",
+export const USE_ITS: string[] = [
+  "I went to the emergency room",
+  "My small town is famous for",
+  "I spent the day with Grandma",
+  "My hot take",
+  "The worst part of my job",
+  "How I got this scar",
+  "A defining moment in my childhood",
+  "Why I'm never invited back",
+  "My most controversial opinion",
+  "The reason I moved away",
+  "What ruined my wedding",
+  "How I met my nemesis",
+  "The strangest thing in my hometown",
+  "Why the police were called",
+  "My biggest regret",
+  "What I do to unwind",
+  "The reason I don't drive any more",
+  "How my band broke up",
+  "Why I got kicked out of the group chat",
+  "The night I don't talk about",
+  "What my therapist and I discussed",
+  "My grandfather's dying wish",
+  "The worst gift I've ever received",
+  "How I became a local legend",
+  "Why I stopped going to the gym",
+  "The thing my family never mentions",
+  "What happened at the county fair",
+  "How my road trip ended",
+  "Why I'm suing my landlord",
+  "My proudest achievement",
+  "The reason there's a hole in my ceiling",
+  "What I found in the attic",
 ];
 
-export interface Deck {
-  phrases: { id: string; text: string }[];
-  categories: { id: string; text: string }[];
-  prompts: { id: string; text: string }[];
+export interface Card {
+  id: string;
+  text: string;
 }
 
-function index(items: string[], prefix: string) {
+function index(items: string[], prefix: string): Card[] {
   return items.map((text, i) => ({ id: `${prefix}${i}`, text }));
 }
 
-export const DECK: Deck = {
-  phrases: index(PHRASES, "p"),
+export const DECK = {
+  youphemisms: index(YOUPHEMISMS, "y"),
   categories: index(CATEGORIES, "c"),
-  prompts: index(PROMPTS, "s"),
-};
+  useIts: index(USE_ITS, "u"),
+} as const;
 
-const phraseById = new Map(DECK.phrases.map((c) => [c.id, c]));
-const categoryById = new Map(DECK.categories.map((c) => [c.id, c]));
-const promptById = new Map(DECK.prompts.map((c) => [c.id, c]));
+const byId = (cards: readonly Card[]) => new Map(cards.map((c) => [c.id, c]));
 
-export const getPhrase = (id: string) => phraseById.get(id);
+const youphemismById = byId(DECK.youphemisms);
+const categoryById = byId(DECK.categories);
+const useItById = byId(DECK.useIts);
+
+export const getYouphemism = (id: string) => youphemismById.get(id);
 export const getCategory = (id: string) => categoryById.get(id);
-export const getPrompt = (id: string) => promptById.get(id);
+export const getUseIt = (id: string) => useItById.get(id);
+
+export const textOf = (
+  lookup: (id: string) => Card | undefined,
+  id: string,
+): string => lookup(id)?.text ?? id;

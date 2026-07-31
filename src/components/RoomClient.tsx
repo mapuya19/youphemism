@@ -5,10 +5,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { PlayerRail, Timer, Toast } from "@/components/ui";
 import { Lobby } from "@/components/phases/Lobby";
-import { CoinPhase } from "@/components/phases/CoinPhase";
-import { VotePhase } from "@/components/phases/VotePhase";
-import { StoryPhase } from "@/components/phases/StoryPhase";
-import { ResultsPhase } from "@/components/phases/ResultsPhase";
+import { CategoryPhase } from "@/components/phases/CategoryPhase";
+import { CategoryResult, JudgingPhase } from "@/components/phases/JudgingPhase";
+import { UseItPhase } from "@/components/phases/UseItPhase";
+import { UseItResult, UseItVote } from "@/components/phases/UseItVote";
 import { GameOver } from "@/components/phases/GameOver";
 import { loadProfile, useRoom } from "@/lib/client/useRoom";
 import { PHASE_LABEL, cn } from "@/lib/ui";
@@ -66,12 +66,13 @@ export function RoomClient({ code }: { code: string }) {
   const totalForPhase = useMemo(() => {
     if (!view) return undefined;
     switch (view.phase) {
-      case "coin":
-        return view.settings.coinSeconds;
-      case "story":
+      case "category":
+        return view.settings.pitchSeconds;
+      case "judging":
+        return view.settings.judgeSeconds;
+      case "useit":
         return view.settings.storySeconds;
-      case "coin_vote":
-      case "story_vote":
+      case "useit_vote":
         return view.settings.voteSeconds;
       default:
         return undefined;
@@ -115,7 +116,18 @@ export function RoomClient({ code }: { code: string }) {
           You<span className="text-lime">phemism</span>
         </Link>
         <RoomCodeBadge code={code} />
-        <span className="chip">{PHASE_LABEL[view.phase] ?? view.phase}</span>
+        <span className="chip">
+          {PHASE_LABEL[view.phase] ?? view.phase}
+          {view.phase === "category" ||
+          view.phase === "judging" ||
+          view.phase === "category_result"
+            ? ` · ${view.turn}/${view.totalTurns}`
+            : view.phase === "useit" ||
+                view.phase === "useit_vote" ||
+                view.phase === "useit_result"
+              ? ` · ${view.useItRound}/${view.useItRounds}`
+              : ""}
+        </span>
         <div className="ml-auto flex items-center gap-4">
           <Timer secondsLeft={secondsLeft} total={totalForPhase} />
           <span
@@ -133,8 +145,8 @@ export function RoomClient({ code }: { code: string }) {
       <PlayerRail
         players={view.players}
         youId={view.you.id}
-        showReady={view.phase === "coin" || view.phase === "story"}
-        showVoted={view.phase === "coin_vote" || view.phase === "story_vote"}
+        showReady={view.phase === "category" || view.phase === "useit"}
+        showVoted={view.phase === "useit_vote"}
       />
 
       <AnimatePresence mode="wait">
@@ -177,16 +189,18 @@ function PhaseView({
   switch (view.phase) {
     case "lobby":
       return <Lobby view={view} send={send} />;
-    case "coin":
-      return <CoinPhase view={view} send={send} />;
-    case "coin_vote":
-    case "story_vote":
-      return <VotePhase view={view} send={send} />;
-    case "coin_results":
-    case "story_results":
-      return <ResultsPhase view={view} send={send} secondsLeft={secondsLeft} />;
-    case "story":
-      return <StoryPhase view={view} send={send} />;
+    case "category":
+      return <CategoryPhase view={view} send={send} />;
+    case "judging":
+      return <JudgingPhase view={view} send={send} />;
+    case "category_result":
+      return <CategoryResult view={view} send={send} secondsLeft={secondsLeft} />;
+    case "useit":
+      return <UseItPhase view={view} send={send} />;
+    case "useit_vote":
+      return <UseItVote view={view} send={send} />;
+    case "useit_result":
+      return <UseItResult view={view} send={send} secondsLeft={secondsLeft} />;
     case "game_over":
       return <GameOver view={view} send={send} />;
     default:

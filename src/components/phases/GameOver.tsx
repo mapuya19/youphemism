@@ -10,15 +10,7 @@ export function GameOver({ view, send }: PhaseProps) {
   const standings = [...view.players].sort((a, b) => b.score - a.score);
   const top = standings[0]?.score ?? 0;
   const winners = standings.filter((p) => p.score === top && top > 0);
-
-  const bestSlang = [...view.slangBoard].sort(
-    (a, b) => (b.voteCount ?? 0) - (a.voteCount ?? 0),
-  )[0];
-  const bestStory = [...view.storyBoard].sort(
-    (a, b) => (b.voteCount ?? 0) - (a.voteCount ?? 0),
-  )[0];
-  const nameOf = (id: string | null) =>
-    view.players.find((p) => p.id === id)?.name ?? "Someone";
+  const nameOf = (id: string) => view.players.find((p) => p.id === id)?.name ?? "Someone";
 
   return (
     <div className="flex flex-col gap-6">
@@ -31,6 +23,12 @@ export function GameOver({ view, send }: PhaseProps) {
               ? `${winners[0]!.name} wins!`
               : `Tie: ${winners.map((w) => w.name).join(" & ")}`}
         </h2>
+        {winners.length > 1 && (
+          <p className="mt-2 text-sm text-paper/50">
+            The rulebook says settle this with a dance battle. We can&apos;t help
+            you there.
+          </p>
+        )}
       </header>
 
       <ol className="flex flex-col gap-2">
@@ -43,7 +41,7 @@ export function GameOver({ view, send }: PhaseProps) {
             transition={{ delay: index * 0.06 }}
             className={cn(
               "surface flex items-center gap-4 px-5 py-3.5",
-              index === 0 && "border-lime/60 bg-lime/[0.08]",
+              index === 0 && top > 0 && "border-lime/60 bg-lime/[0.08]",
             )}
           >
             <span className="font-display w-6 text-lg text-paper/40 tabular-nums">
@@ -59,34 +57,24 @@ export function GameOver({ view, send }: PhaseProps) {
         ))}
       </ol>
 
-      <div className="grid gap-4 md:grid-cols-2">
-        {bestSlang && (
-          <article className="surface p-6">
-            <span className="label text-lime">Slang of the game</span>
-            <h3 className="mt-2 font-display text-2xl font-black">{bestSlang.term}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-paper/70">
-              {bestSlang.definition}
-            </p>
-            <p className="mt-3 text-xs text-paper/40">
-              by {nameOf(bestSlang.authorId)} · {bestSlang.voteCount ?? 0} votes
-            </p>
-          </article>
-        )}
-        {bestStory && (
-          <article className="surface p-6">
-            <span className="label text-sky">Story of the game</span>
-            <h3 className="mt-2 font-display text-lg font-bold text-paper/80">
-              {bestStory.prompt}
-            </h3>
-            <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-paper/70">
-              {bestStory.text}
-            </p>
-            <p className="mt-3 text-xs text-paper/40">
-              by {nameOf(bestStory.authorId)} · {bestStory.voteCount ?? 0} votes
-            </p>
-          </article>
-        )}
-      </div>
+      <section>
+        <h3 className="font-display text-2xl font-bold">The Slangbook</h3>
+        <p className="mt-1 text-sm text-paper/50">
+          Everything this table invented tonight. Screenshot it.
+        </p>
+        <ul className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {view.slangbook.map((card) => (
+            <li key={card.id} className="surface flex flex-col gap-1.5 p-4">
+              <p className="font-display text-lg font-bold text-sky">{card.term}</p>
+              <p className="text-xs text-paper/35">as {card.category}</p>
+              <p className="text-sm leading-relaxed text-paper/75">{card.definition}</p>
+              <p className="mt-auto pt-2 text-xs text-paper/35">
+                coined by {nameOf(card.authorId)} · turn {card.turn}
+              </p>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <div className="flex flex-wrap gap-3">
         {view.you.isHost ? (
