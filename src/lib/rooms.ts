@@ -61,6 +61,14 @@ export async function readRoom(code: string): Promise<GameState> {
 }
 
 /**
+ * Cheap change probe for the SSE loop: the room's current revision, without
+ * transferring the whole room. Returns null if the room is gone.
+ */
+export async function peekRev(code: string): Promise<number | null> {
+  return getStore().getRev(code);
+}
+
+/**
  * Apply an action atomically. `mutate` re-reads and replays on CAS failure,
  * which is safe because `applyAction` is a pure function of (state, action).
  */

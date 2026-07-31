@@ -16,6 +16,12 @@ import { GameState } from "./types";
 
 const ROOM_TTL_SECONDS = 60 * 60 * 6;
 const key = (code: string) => `youphemism:room:${code}`;
+/**
+ * A tiny companion key holding only the revision number. Stream subscribers
+ * poll this instead of re-reading the whole room, which cuts streaming
+ * bandwidth by orders of magnitude (a few bytes per poll instead of ~20KB).
+ */
+const revKey = (code: string) => `youphemism:rev:${code}`;
 
 /** CAS write: only overwrite if the persisted `rev` equals `expectedRev`. */
 const CAS_SCRIPT = `
@@ -27,11 +33,17 @@ elseif ARGV[2] ~= '-1' then
   return 0
 end
 redis.call('SET', KEYS[1], ARGV[1], 'EX', ARGV[3])
+redis.call('SET', KEYS[2], ARGV[4], 'EX', ARGV[3])
 return 1
 `;
 
 export interface RoomStore {
   get(code: string): Promise<GameState | null>;
+  /**
+   * Cheap liveness probe: the room's current revision, or null if it's gone.
+   * Reads a handful of bytes rather than the entire room.
+   */
+  getRev(code: string): Promise<number | null>;
   /** Returns false when the compare-and-set failed (someone else wrote first). */
   compareAndSet(state: GameState, expectedRev: number): Promise<boolean>;
   delete(code: string): Promise<void>;
@@ -48,16 +60,27 @@ function redisStore(redis: Redis): RoomStore {
       if (!raw) return null;
       return typeof raw === "string" ? (JSON.parse(raw) as GameState) : raw;
     },
+    async getRev(code) {
+      const raw = await redis.get<string | number>(revKey(code));
+      if (raw === null || raw === undefined) return null;
+      const rev = Number(raw);
+      return Number.isFinite(rev) ? rev : null;
+    },
     async compareAndSet(state, expectedRev) {
       const result = await redis.eval(
         CAS_SCRIPT,
-        [key(state.code)],
-        [JSON.stringify(state), String(expectedRev), String(ROOM_TTL_SECONDS)],
+        [key(state.code), revKey(state.code)],
+        [
+          JSON.stringify(state),
+          String(expectedRev),
+          String(ROOM_TTL_SECONDS),
+          String(state.rev),
+        ],
       );
       return Number(result) === 1;
     },
     async delete(code) {
-      await redis.del(key(code));
+      await redis.del(key(code), revKey(code));
     },
   };
 }
@@ -84,6 +107,9 @@ function memoryStore(): RoomStore {
   return {
     async get(code) {
       return read(code);
+    },
+    async getRev(code) {
+      return read(code)?.rev ?? null;
     },
     async compareAndSet(state, expectedRev) {
       const current = read(state.code);

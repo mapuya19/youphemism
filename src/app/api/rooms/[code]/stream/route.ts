@@ -1,6 +1,6 @@
 import { playerIdFromRequest, toResponse } from "@/lib/http";
 import { projectForPlayer } from "@/lib/projection";
-import { normalizeCode, readRoom } from "@/lib/rooms";
+import { normalizeCode, peekRev, readRoom } from "@/lib/rooms";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -14,13 +14,18 @@ const STREAM_LIFETIME_MS = 50_000;
 /**
  * GET /api/rooms/[code]/stream — Server-Sent Events feed of the room.
  *
- * Why SSE rather than WebSockets: Vercel functions don't hold WebSocket
- * connections, and this game's update rate is low (a handful of events per
- * minute). A single streaming function per client, tailing the room's revision
- * counter, gives sub-second updates with no extra infrastructure.
+ * Why SSE rather than WebSockets: Vercel functions can't hold WebSocket
+ * connections, and this game's update rate is a handful of events per minute.
+ * A single streaming function per client, tailing the room's revision counter,
+ * gives sub-second updates with no extra infrastructure.
+ *
+ * The hot loop polls a tiny `rev` key (a few bytes) and only reads the full
+ * room — ~20KB — when something has actually changed, or when a phase deadline
+ * has elapsed and needs enforcing. Without that split, six players would pull
+ * hundreds of megabytes per hour out of Redis just to watch an idle lobby.
  *
  * Each `state` event carries the caller's *projected* view, so secrecy rules
- * are applied per-subscriber.
+ * are applied per subscriber.
  */
 export async function GET(
   request: Request,
@@ -39,34 +44,53 @@ export async function GET(
 
     const stream = new ReadableStream<Uint8Array>({
       async start(controller) {
-        const send = (event: string, data: unknown) => {
+        const enqueue = (chunk: string) => {
           if (closed) return;
-          controller.enqueue(
-            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
-          );
+          try {
+            controller.enqueue(encoder.encode(chunk));
+          } catch {
+            closed = true;
+          }
         };
+        const send = (event: string, data: unknown) =>
+          enqueue(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
         const startedAt = Date.now();
         let lastRev = -1;
         let lastPush = 0;
+        /** Deadline from the last state we sent, so we can force a re-read. */
+        let knownDeadline: number | null = null;
 
         request.signal.addEventListener("abort", () => {
           closed = true;
         });
 
         // Advise the client how long to wait before reconnecting.
-        controller.enqueue(encoder.encode("retry: 1000\n\n"));
+        enqueue("retry: 1000\n\n");
 
         while (!closed && Date.now() - startedAt < STREAM_LIFETIME_MS) {
           try {
-            const state = await readRoom(code);
             const now = Date.now();
-            if (state.rev !== lastRev || now - lastPush > HEARTBEAT_MS) {
+            const rev = await peekRev(code);
+            if (rev === null) {
+              send("gone", { error: "This room no longer exists." });
+              break;
+            }
+
+            const deadlinePassed = knownDeadline !== null && now >= knownDeadline;
+            const needsFullRead =
+              rev !== lastRev || deadlinePassed || now - lastPush > HEARTBEAT_MS;
+
+            if (needsFullRead) {
+              // `readRoom` also enforces timers, so an expired phase advances
+              // even when nobody is interacting.
+              const state = await readRoom(code);
               lastRev = state.rev;
               lastPush = now;
+              knownDeadline = state.deadline;
               send("state", projectForPlayer(state, playerId, now));
             } else {
-              controller.enqueue(encoder.encode(": ping\n\n"));
+              enqueue(": ping\n\n");
             }
           } catch {
             send("gone", { error: "This room no longer exists." });
